@@ -25,12 +25,12 @@ fi
 
 $PYTHON_CMD --version
 
-if [ ! -d ".venv" ]; then
+if [ ! -x ".venv/bin/python" ]; then
     echo "[INFO] Creating virtual environment..."
     if ! $PYTHON_CMD -m venv .venv; then
         echo "[ERROR] Failed to create virtual environment."
         echo "Try this manually:"
-        echo "  sudo apt install python3-venv"
+        echo "  sudo apt install python3.12-venv"
         exit 1
     fi
 fi
