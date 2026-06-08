@@ -25,6 +25,18 @@ fi
 
 $PYTHON_CMD --version
 
+if [ ! -d ".venv" ]; then
+    echo "[INFO] Creating virtual environment..."
+    if ! $PYTHON_CMD -m venv .venv; then
+        echo "[ERROR] Failed to create virtual environment."
+        echo "Try this manually:"
+        echo "  sudo apt install python3-venv"
+        exit 1
+    fi
+fi
+
+PYTHON_CMD=".venv/bin/python"
+
 echo "[2/3] Check dependencies..."
 if ! $PYTHON_CMD -m pip show akshare >/dev/null 2>&1; then
     echo "[INFO] Installing requirements..."
