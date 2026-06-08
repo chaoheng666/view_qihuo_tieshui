@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股指期货升贴水监控</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='20260527-enterprise-1') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div id="topProgress" class="top-progress" aria-hidden="true">
+                <span></span>
+            </div>
+            <div class="hero-copy">
+                <p class="hero-kicker">实时监控</p>
+                <h1>股指期货升贴水监控</h1>
+                <p class="hero-summary">主力合约、实时基差、期限结构、风险提示和数据质量统一展示。</p>
+            </div>
+
+            <div class="hero-side">
+                <div class="hero-toolbar">
+                    <div class="live-ribbon">
+                        <span class="live-dot"></span>
+                        <span>实时链路在线</span>
+                    </div>
+
+                    <button id="refreshButton" class="refresh-button" type="button">刷新</button>
+                </div>
+
+                <div class="hero-meta">
+                    <div class="refresh-countdown" aria-label="下次自动刷新进度">
+                        <span id="refreshCountdownLabel">下次刷新 -- 秒</span>
+                        <div class="refresh-countdown-track">
+                            <i id="refreshCountdownBar"></i>
+                        </div>
+                    </div>
+                    <div class="meta-card">
+                        <span>当前品种</span>
+                        <strong id="selectedSymbolLabel">IF</strong>
+                    </div>
+                    <div class="meta-card">
+                        <span>更新时间</span>
+                        <strong id="generatedAt">--</strong>
+                    </div>
+                    <div class="meta-card">
+                        <span>数据状态</span>
+                        <strong id="heroQuality" class="quality-pill quality-ok">正常</strong>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="summary-grid" id="summaryGrid"></section>
+
+        <section class="dashboard-grid">
+            <article class="panel chart-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">主图</p>
+                        <h2 id="chartTitle">IF 实时升贴水率</h2>
+                        <p id="detailSubtitle">--</p>
+                    </div>
+                    <div class="panel-badge">
+                        <span>状态</span>
+                        <strong id="chartQuality" class="quality-pill quality-ok">正常</strong>
+                    </div>
+                </div>
+
+                <div class="headline-strip" id="headlineStrip"></div>
+
+                <div class="chart-wrap">
+                    <div id="premiumChartMount" class="chart-stage" aria-label="升贴水率走势"></div>
+                    <div class="chart-overlay" id="chartOverlay" hidden>正在准备图表数据...</div>
+                </div>
+            </article>
+
+            <aside class="side-rail">
+                <article class="panel insight-panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="panel-kicker">快照</p>
+                            <h2>关键信号</h2>
+                        </div>
+                    </div>
+
+                    <div class="signal-stack" id="signalStack"></div>
+                    <div class="metric-grid" id="metricGrid"></div>
+                </article>
+
+                <article class="panel ops-panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="panel-kicker">状态</p>
+                            <h2>数据来源与质量</h2>
+                        </div>
+                        <div class="ops-header-badge" id="opsHeaderBadge"></div>
+                    </div>
+
+                    <div class="insight-info-row">
+                        <div class="source-box" id="sourceBox"></div>
+                        <div class="quality-box" id="qualityBox"></div>
+                        <div class="status-pulse-box" id="statusPulseBox"></div>
+                    </div>
+                </article>
+            </aside>
+        </section>
+
+        <section class="lower-grid">
+            <article class="panel table-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">结构</p>
+                        <h2>近月合约结构</h2>
+                        <p>按到期顺序展示可交易合约。</p>
+                    </div>
+                </div>
+
+                <div class="table-shell">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>合约</th>
+                                <th>位置</th>
+                                <th>期货价</th>
+                                <th>指数价</th>
+                                <th>升贴水点</th>
+                                <th>升贴水率</th>
+                                <th>年化</th>
+                                <th>成交量</th>
+                                <th>持仓量</th>
+                                <th>到期天数</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contractTableBody">
+                            <tr><td colspan="11" class="empty-row">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <aside class="panel alert-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">告警</p>
+                        <h2>风险提示</h2>
+                        <p>异常状态、阈值触发和质量摘要。</p>
+                    </div>
+                </div>
+
+                <div id="alertList" class="alert-list">
+                    <div class="empty-alert">暂无告警。</div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="panel source-catalog-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="panel-kicker">目录</p>
+                    <h2>数据源目录</h2>
+                    <p>当前接入的实时与历史链路。</p>
+                </div>
+            </div>
+
+            <div class="source-catalog-grid" id="sourceCatalogGrid"></div>
+        </section>
+    </div>
+
+    <div id="thresholdModal" class="threshold-modal" hidden>
+        <div class="threshold-modal-backdrop" data-close-threshold-modal></div>
+        <div class="threshold-modal-card" role="dialog" aria-modal="true" aria-labelledby="thresholdModalTitle">
+            <div class="threshold-modal-head">
+                <div>
+                    <p class="panel-kicker">触发提示</p>
+                    <h2 id="thresholdModalTitle">升贴水率达到提示阈值</h2>
+                </div>
+                <button id="thresholdModalClose" class="modal-close-button" type="button" aria-label="关闭">×</button>
+            </div>
+            <div id="thresholdModalBody" class="threshold-modal-body"></div>
+            <div class="threshold-modal-actions">
+                <button id="thresholdModalAcknowledge" class="refresh-button" type="button">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='dashboard.js', v='20260527-enterprise-1') }}"></script>
+</body>
+</html>
