@@ -491,6 +491,14 @@ class MarketDataService:
         target = symbol.upper()
         if range_name == "intraday":
             frame = self.storage.load_intraday_snapshots(target)
+            contract_code = ""
+            if not frame.empty and "contract_code" in frame.columns:
+                contract_code = str(frame["contract_code"].dropna().iloc[-1]).upper()
+            if not contract_code:
+                live = self.get_market_snapshot()["symbols"].get(target)
+                if live:
+                    contract_code = str(live["main_contract"].get("contract_code") or "").upper()
+            backfill_points = self._fetch_intraday_minute_backfill(target, contract_code)
             points = [
                 {
                     "timestamp": row["quote_time"],
@@ -498,11 +506,17 @@ class MarketDataService:
                     "premium_points": _to_float(row["premium_points"]),
                     "futures_price": _to_float(row["futures_price"]),
                     "index_price": _to_float(row["index_price"]),
+                    "volume": _to_float(row.get("volume")),
                     "contract_code": row["contract_code"],
                     "data_quality": row["data_quality"],
                 }
                 for _, row in frame.iterrows()
             ]
+            if backfill_points:
+                by_minute = {str(item.get("timestamp", ""))[:16]: item for item in backfill_points}
+                for item in points:
+                    by_minute[str(item.get("timestamp", ""))[:16]] = item
+                points = [by_minute[key] for key in sorted(by_minute)]
             if not points:
                 live = self.get_market_snapshot()["symbols"].get(target)
                 if live:
@@ -514,6 +528,7 @@ class MarketDataService:
                             "premium_points": main.get("premium_points"),
                             "futures_price": main.get("futures_price"),
                             "index_price": main.get("index_price"),
+                            "volume": main.get("volume"),
                             "contract_code": main.get("contract_code"),
                             "data_quality": main.get("data_quality"),
                         }
@@ -572,6 +587,61 @@ class MarketDataService:
             "raw": raw_points,
             "smoothed": smoothed_points,
         }
+
+    def _fetch_intraday_minute_backfill(self, symbol: str, contract_code: str) -> List[Dict[str, Any]]:
+        if not contract_code or symbol not in SYMBOL_CONFIG:
+            return []
+        try:
+            futures = ak.futures_zh_minute_sina(symbol=contract_code, period="1")
+            index = ak.stock_zh_a_minute(symbol=SYMBOL_CONFIG[symbol]["sina_index_code"], period="1", adjust="")
+        except Exception as exc:
+            LOGGER.debug("intraday minute backfill failed for %s %s: %s", symbol, contract_code, exc)
+            return []
+        if futures is None or index is None or futures.empty or index.empty:
+            return []
+        if "datetime" not in futures.columns or "day" not in index.columns:
+            return []
+
+        today = _now().date()
+        futures = futures.copy()
+        index = index.copy()
+        futures["minute"] = pd.to_datetime(futures["datetime"], errors="coerce")
+        index["minute"] = pd.to_datetime(index["day"], errors="coerce")
+        futures = futures.dropna(subset=["minute"])
+        index = index.dropna(subset=["minute"])
+        futures = futures[futures["minute"].dt.date == today]
+        index = index[index["minute"].dt.date == today]
+        if futures.empty or index.empty:
+            return []
+
+        futures = futures[["minute", "close", "volume", "hold"]].rename(
+            columns={"close": "futures_price", "hold": "open_interest"}
+        )
+        index = index[["minute", "close"]].rename(columns={"close": "index_price"})
+        merged = pd.merge(futures, index, on="minute", how="inner").sort_values("minute")
+        rows: List[Dict[str, Any]] = []
+        for _, row in merged.iterrows():
+            futures_price = _to_float(row.get("futures_price"))
+            index_price = _to_float(row.get("index_price"))
+            if futures_price <= 0 or index_price <= 0:
+                continue
+            premium = compute_premium(futures_price, index_price, 0)
+            rows.append(
+                {
+                    "timestamp": row["minute"].strftime("%Y-%m-%d %H:%M:%S"),
+                    "premium_rate": premium["premium_rate"],
+                    "premium_points": premium["premium_points"],
+                    "futures_price": futures_price,
+                    "index_price": index_price,
+                    "volume": _to_float(row.get("volume")),
+                    "open_interest": _to_float(row.get("open_interest")),
+                    "contract_code": contract_code,
+                    "data_quality": "ok",
+                    "source_futures": "sina_minute",
+                    "source_index": "sina_minute",
+                }
+            )
+        return rows
 
     def ensure_daily_history_backfill(self, force: bool = False) -> None:
         now = _now()

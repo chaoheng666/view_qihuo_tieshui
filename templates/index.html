@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>股指期货升贴水监控</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='20260527-enterprise-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='20260610-intraday-chart') }}">
 </head>
 <body>
     <div class="page-shell">
@@ -54,27 +54,6 @@
         <section class="summary-grid" id="summaryGrid"></section>
 
         <section class="dashboard-grid">
-            <article class="panel chart-panel">
-                <div class="panel-header">
-                    <div>
-                        <p class="panel-kicker">主图</p>
-                        <h2 id="chartTitle">IF 实时升贴水率</h2>
-                        <p id="detailSubtitle">--</p>
-                    </div>
-                    <div class="panel-badge">
-                        <span>状态</span>
-                        <strong id="chartQuality" class="quality-pill quality-ok">正常</strong>
-                    </div>
-                </div>
-
-                <div class="headline-strip" id="headlineStrip"></div>
-
-                <div class="chart-wrap">
-                    <div id="premiumChartMount" class="chart-stage" aria-label="升贴水率走势"></div>
-                    <div class="chart-overlay" id="chartOverlay" hidden>正在准备图表数据...</div>
-                </div>
-            </article>
-
             <aside class="side-rail">
                 <article class="panel insight-panel">
                     <div class="panel-header">
@@ -86,6 +65,20 @@
 
                     <div class="signal-stack" id="signalStack"></div>
                     <div class="metric-grid" id="metricGrid"></div>
+                </article>
+
+                <article class="panel intraday-panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="panel-kicker">INTRADAY</p>
+                            <h2>分时走势</h2>
+                            <p>主力合约与指数价格、成交量。</p>
+                        </div>
+                    </div>
+
+                    <div id="intradayChart" class="intraday-chart">
+                        <div class="empty-chart">加载中...</div>
+                    </div>
                 </article>
 
                 <article class="panel ops-panel">
@@ -185,6 +178,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='dashboard.js', v='20260527-enterprise-1') }}"></script>
+    <script src="{{ url_for('static', filename='dashboard.js', v='20260610-intraday-chart') }}"></script>
 </body>
 </html>

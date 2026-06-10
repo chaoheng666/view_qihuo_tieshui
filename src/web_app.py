@@ -218,7 +218,7 @@ def health() -> Any:
     )
 
 
-def run_server(port: int = 5000) -> None:
+def run_server(port: int = 5005) -> None:
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True, use_reloader=False)
 
 

@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg-top: #f8fbfe;
     --bg-bottom: #eaf0f7;
     --panel: rgba(255, 255, 255, 0.94);
@@ -378,7 +378,7 @@ body {
 }
 
 .dashboard-grid {
-    grid-template-columns: minmax(0, 1.56fr) minmax(360px, 1.02fr);
+    grid-template-columns: 1fr;
 }
 
 .lower-grid {
@@ -387,9 +387,25 @@ body {
 
 .side-rail {
     display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.85fr);
+    grid-template-areas:
+        "chart insight"
+        "ops ops";
     gap: 12px;
     align-content: start;
     grid-auto-rows: max-content;
+}
+
+.intraday-panel {
+    grid-area: chart;
+}
+
+.insight-panel {
+    grid-area: insight;
+}
+
+.ops-panel {
+    grid-area: ops;
 }
 
 .panel {
@@ -485,140 +501,6 @@ body {
     line-height: 1.4;
     font-weight: 700;
 }
-
-.chart-panel {
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 253, 0.96));
-}
-
-.chart-wrap {
-    position: relative;
-    min-height: 432px;
-    padding: 10px 12px 12px;
-    border-radius: 18px;
-    border: 1px solid #c8d5e5;
-    background: #ffffff;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.92),
-        0 10px 20px rgba(16, 32, 58, 0.06);
-}
-
-.chart-stage {
-    width: 100%;
-    min-height: 460px;
-}
-
-.chart-svg,
-.chart-empty {
-    display: block;
-    width: 100%;
-    height: 460px;
-    min-height: 460px;
-}
-
-.chart-empty {
-    display: grid;
-    place-items: center;
-    color: #102942;
-    font-size: 14px;
-    font-weight: 800;
-}
-
-.chart-svg text {
-    fill: #102942;
-    font-family: "SimHei", "Microsoft YaHei", "PingFang SC", sans-serif;
-    font-weight: 900;
-    text-rendering: geometricPrecision;
-}
-
-.chart-svg {
-    opacity: 1;
-}
-
-.chart-grid-line {
-    stroke: rgba(102, 122, 150, 0.28);
-    stroke-width: 1;
-}
-
-.chart-axis-line {
-    stroke: rgba(63, 84, 111, 0.72);
-    stroke-width: 1.2;
-}
-
-.chart-tick-label {
-    font-size: 13px;
-}
-
-.chart-axis-title {
-    font-size: 14px;
-}
-
-.chart-legend-label {
-    font-size: 13px;
-}
-
-.chart-premium-zone {
-    fill: rgba(212, 73, 103, 0.045);
-}
-
-.chart-discount-zone {
-    fill: rgba(14, 139, 107, 0.055);
-}
-
-.chart-zero-line {
-    stroke: rgba(30, 41, 59, 0.78);
-    stroke-width: 1.35;
-    stroke-dasharray: 6 5;
-}
-
-.chart-avg-line {
-    stroke: rgba(37, 99, 235, 0.58);
-    stroke-width: 1.4;
-    stroke-dasharray: 3 6;
-}
-
-.chart-stat-chip rect {
-    fill: #f8fafc;
-    stroke: rgba(148, 163, 184, 0.48);
-    stroke-width: 1;
-}
-
-.chart-stat-label {
-    fill: #64748b !important;
-    font-size: 10px;
-    font-weight: 800;
-}
-
-.chart-stat-value {
-    fill: #0f172a !important;
-    font-size: 12px;
-    font-weight: 900;
-}
-
-.chart-value-callout text {
-    fill: #ffffff !important;
-    font-size: 11px;
-    font-weight: 900;
-}
-
-.chart-extreme-point {
-    fill: #ffffff;
-    stroke: #334155;
-    stroke-width: 2;
-}
-
-.chart-overlay {
-    position: absolute;
-    inset: 10px 12px 12px;
-    display: grid;
-    place-items: center;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.86);
-    color: #102942;
-    text-align: center;
-    z-index: 2;
-}
-
 .signal-stack {
     display: grid;
     gap: 10px;
@@ -678,6 +560,143 @@ body {
     padding: 12px 14px;
     border-radius: 14px;
     animation: riseIn 0.45s ease both;
+}
+
+.intraday-chart {
+    min-height: 278px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.intraday-chart-meta,
+.intraday-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.intraday-chart-meta {
+    margin-bottom: 8px;
+}
+
+.intraday-chart-meta b {
+    font-weight: 900;
+}
+
+.chart-futures {
+    color: #1f6feb;
+}
+
+.chart-index {
+    color: #d99a00;
+}
+
+.intraday-chart-svg {
+    display: block;
+    width: 100%;
+    height: 238px;
+    overflow: visible;
+}
+
+.chart-grid {
+    stroke: #d9e2ec;
+    stroke-dasharray: 4 5;
+    stroke-width: 1;
+}
+
+.chart-axis {
+    stroke: #cbd5e1;
+    stroke-width: 1;
+}
+
+.chart-zero-line {
+    stroke: #9ca3af;
+    stroke-width: 1;
+}
+
+.chart-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.chart-line-futures {
+    stroke: #1f6feb;
+}
+
+.chart-line-index {
+    stroke: #d99a00;
+}
+
+.chart-label {
+    fill: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.chart-price-label {
+    text-anchor: end;
+}
+
+.chart-pct-label {
+    text-anchor: start;
+}
+
+.chart-time-label {
+    text-anchor: middle;
+}
+
+.chart-pct-label.up {
+    fill: var(--up);
+}
+
+.chart-pct-label.down {
+    fill: var(--down);
+}
+
+.chart-label-mid {
+    text-anchor: middle;
+}
+
+.chart-label-end {
+    text-anchor: end;
+}
+
+.intraday-chart-legend {
+    margin-top: 8px;
+}
+
+.intraday-chart-legend i {
+    display: inline-block;
+    width: 16px;
+    height: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border-radius: 999px;
+}
+
+.legend-futures {
+    background: #1f6feb;
+}
+
+.legend-index {
+    background: #d99a00;
+}
+
+.empty-chart {
+    display: grid;
+    min-height: 280px;
+    place-items: center;
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .metric-label {
@@ -1532,6 +1551,13 @@ body {
         grid-template-columns: 1fr;
     }
 
+    .side-rail {
+        grid-template-areas:
+            "chart"
+            "insight"
+            "ops";
+    }
+
     .insight-info-row {
         grid-template-columns: 1fr;
         grid-template-areas:
@@ -1568,17 +1594,6 @@ body {
     .summary-grid {
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
-
-    .chart-wrap {
-        min-height: 380px;
-    }
-
-    .chart-stage,
-    .chart-svg,
-    .chart-empty {
-        min-height: 348px;
-        height: 348px;
-    }
 }
 
 @media (max-width: 720px) {
@@ -1607,26 +1622,7 @@ body {
         grid-template-columns: 1fr;
         gap: 4px;
     }
-
-    .chart-wrap {
-        min-height: 320px;
-    }
-
-    .chart-stage,
-    .chart-svg,
-    .chart-empty {
-        min-height: 288px;
-        height: 288px;
-    }
-
-    .notification-card-head,
-    .channel-head,
-    .threshold-modal-meta-row,
-    .status-pulse-head {
-        display: grid;
-    }
-
-    .notification-actions,
+.notification-actions,
     .threshold-modal-actions {
         justify-content: stretch;
     }
@@ -1903,7 +1899,7 @@ body {
 }
 
 .dashboard-grid {
-    grid-template-columns: minmax(740px, 1.72fr) minmax(410px, 0.88fr);
+    grid-template-columns: 1fr;
     gap: 10px;
     margin-bottom: 10px;
     align-items: stretch;
@@ -1964,83 +1960,6 @@ body {
 .headline-meta {
     font-size: 11px;
 }
-
-.chart-wrap {
-    flex: 1;
-    min-height: 454px;
-    padding: 8px;
-    border-color: #94a3b8;
-    border-radius: 8px;
-    background: #ffffff;
-}
-
-.chart-panel {
-    display: flex;
-    flex-direction: column;
-}
-
-.chart-stage,
-.chart-svg,
-.chart-empty {
-    min-height: 460px;
-    height: 460px;
-}
-
-.chart-svg {
-    overflow: visible;
-}
-
-.chart-svg rect {
-    rx: 8px;
-}
-
-.chart-grid-line {
-    stroke: rgba(71, 85, 105, 0.32);
-}
-
-.chart-axis-line {
-    stroke: rgba(30, 41, 59, 0.82);
-    stroke-width: 1.4;
-}
-
-.chart-tick-label {
-    fill: #1e293b !important;
-    font-size: 12px;
-    font-weight: 900;
-}
-
-.chart-axis-title,
-.chart-legend-label {
-    fill: #0f172a !important;
-    font-size: 12px;
-    font-weight: 900;
-}
-
-.chart-svg path {
-    filter: none;
-    animation: chartTrace 680ms ease-out both;
-}
-
-.chart-svg circle {
-    filter: none;
-}
-
-.chart-stat-chip rect {
-    fill: #ffffff;
-    stroke: #94a3b8;
-    stroke-width: 1.2;
-}
-
-.chart-stat-label {
-    fill: #334155 !important;
-    font-weight: 900;
-}
-
-.chart-stat-value {
-    fill: #020617 !important;
-    font-weight: 900;
-}
-
 .signal-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -2259,18 +2178,6 @@ body {
 .down {
     color: var(--down) !important;
 }
-
-@keyframes chartTrace {
-    from {
-        opacity: 0;
-        stroke-dasharray: 8 10;
-    }
-    to {
-        opacity: 1;
-        stroke-dasharray: 0 0;
-    }
-}
-
 @keyframes topProgressSweep {
     0% {
         transform: translateX(-110%);
@@ -2332,16 +2239,5 @@ body {
 
     .summary-card {
         min-height: auto;
-    }
-
-    .chart-wrap {
-        min-height: 340px;
-    }
-
-    .chart-stage,
-    .chart-svg,
-    .chart-empty {
-        min-height: 318px;
-        height: 318px;
     }
 }
