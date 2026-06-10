@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 import re
 from datetime import date, datetime, timedelta
-from threading import Lock
+from pathlib import Path
+from threading import Lock, Thread
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import akshare as ak
@@ -23,6 +24,21 @@ except Exception:
 LOGGER = logging.getLogger(__name__)
 
 DAILY_HISTORY_START = date(2021, 1, 1)
+INTRADAY_CACHE_COLUMNS = [
+    "trade_date",
+    "symbol",
+    "timestamp",
+    "premium_rate",
+    "premium_points",
+    "futures_price",
+    "index_price",
+    "volume",
+    "open_interest",
+    "contract_code",
+    "data_quality",
+    "source_futures",
+    "source_index",
+]
 
 SYMBOL_CONFIG: Dict[str, Dict[str, str]] = {
     "IF": {
@@ -288,6 +304,8 @@ class MarketDataService:
         self._last_snapshot_write_at: Optional[datetime] = None
         self._daily_backfill_at: Optional[datetime] = None
         self._fallback_state = self.storage.get_latest_symbol_state()
+        self._intraday_cache_file = Path(self.storage.data_dir) / "intraday_minute_cache.csv"
+        Thread(target=self._warm_intraday_minute_cache, daemon=True).start()
 
     def clear_cache(self) -> None:
         with self._lock:
@@ -498,7 +516,7 @@ class MarketDataService:
                 live = self.get_market_snapshot()["symbols"].get(target)
                 if live:
                     contract_code = str(live["main_contract"].get("contract_code") or "").upper()
-            backfill_points = self._fetch_intraday_minute_backfill(target, contract_code)
+            backfill_points = self._get_intraday_minute_points(target, contract_code)
             points = [
                 {
                     "timestamp": row["quote_time"],
@@ -588,6 +606,112 @@ class MarketDataService:
             "smoothed": smoothed_points,
         }
 
+    def _warm_intraday_minute_cache(self) -> None:
+        try:
+            snapshot = self.get_market_snapshot(force_refresh=True)
+            for symbol, symbol_data in snapshot.get("symbols", {}).items():
+                contract_code = str(symbol_data.get("main_contract", {}).get("contract_code") or "").upper()
+                if contract_code:
+                    self._get_intraday_minute_points(symbol, contract_code, force_refresh=True)
+        except Exception as exc:
+            LOGGER.debug("intraday minute cache warmup failed: %s", exc)
+
+    def _expected_intraday_latest(self) -> Optional[datetime]:
+        now = _now()
+        today = now.date()
+        open_time = datetime.combine(today, datetime.strptime("09:31", "%H:%M").time())
+        morning_close = datetime.combine(today, datetime.strptime("11:30", "%H:%M").time())
+        afternoon_open = datetime.combine(today, datetime.strptime("13:00", "%H:%M").time())
+        close_time = datetime.combine(today, datetime.strptime("15:00", "%H:%M").time())
+        if now < open_time:
+            return None
+        if now <= morning_close:
+            return now
+        if now < afternoon_open:
+            return morning_close
+        if now <= close_time:
+            return now
+        return close_time
+
+    def _is_intraday_cache_complete(self, points: List[Dict[str, Any]]) -> bool:
+        if not points:
+            return False
+        times = [
+            _parse_datetime(str(item.get("timestamp", "")))
+            for item in points
+        ]
+        times = [item for item in times if item is not None]
+        if not times:
+            return False
+        first = min(times)
+        last = max(times)
+        expected = self._expected_intraday_latest()
+        if expected is None:
+            return True
+        return first.strftime("%H:%M") <= "09:35" and last >= expected - timedelta(minutes=5)
+
+    def _load_intraday_minute_cache(self, symbol: str, contract_code: str) -> List[Dict[str, Any]]:
+        if not self._intraday_cache_file.exists():
+            return []
+        try:
+            frame = pd.read_csv(self._intraday_cache_file, encoding="utf-8-sig")
+        except Exception:
+            LOGGER.debug("read intraday minute cache failed", exc_info=True)
+            return []
+        if frame.empty:
+            return []
+        today = _now().strftime("%Y-%m-%d")
+        filtered = frame[
+            (frame.get("trade_date", "").astype(str) == today)
+            & (frame.get("symbol", "").astype(str).str.upper() == symbol.upper())
+            & (frame.get("contract_code", "").astype(str).str.upper() == contract_code.upper())
+        ].copy()
+        if filtered.empty:
+            return []
+        filtered["timestamp"] = pd.to_datetime(filtered["timestamp"], errors="coerce")
+        filtered = filtered.dropna(subset=["timestamp"]).sort_values("timestamp")
+        filtered = filtered.drop_duplicates(subset=["timestamp"], keep="last")
+        filtered["timestamp"] = filtered["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        return filtered.to_dict("records")
+
+    def _save_intraday_minute_cache(self, symbol: str, contract_code: str, points: List[Dict[str, Any]]) -> None:
+        if not points:
+            return
+        today = _now().strftime("%Y-%m-%d")
+        rows = []
+        for item in points:
+            row = {column: item.get(column, "") for column in INTRADAY_CACHE_COLUMNS}
+            row["trade_date"] = today
+            row["symbol"] = symbol.upper()
+            row["contract_code"] = contract_code.upper()
+            rows.append(row)
+        new_frame = pd.DataFrame(rows, columns=INTRADAY_CACHE_COLUMNS)
+        try:
+            current = pd.read_csv(self._intraday_cache_file, encoding="utf-8-sig") if self._intraday_cache_file.exists() else pd.DataFrame(columns=INTRADAY_CACHE_COLUMNS)
+            if not current.empty:
+                current = current[
+                    ~(
+                        (current.get("trade_date", "").astype(str) == today)
+                        & (current.get("symbol", "").astype(str).str.upper() == symbol.upper())
+                        & (current.get("contract_code", "").astype(str).str.upper() == contract_code.upper())
+                    )
+                ]
+            combined = pd.concat([current, new_frame], ignore_index=True)
+            combined = combined.drop_duplicates(subset=["trade_date", "symbol", "contract_code", "timestamp"], keep="last")
+            combined.to_csv(self._intraday_cache_file, index=False, encoding="utf-8-sig")
+        except Exception:
+            LOGGER.debug("write intraday minute cache failed", exc_info=True)
+
+    def _get_intraday_minute_points(self, symbol: str, contract_code: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        cached = self._load_intraday_minute_cache(symbol, contract_code)
+        if cached and not force_refresh and self._is_intraday_cache_complete(cached):
+            return cached
+        fresh = self._fetch_intraday_minute_backfill(symbol, contract_code)
+        if fresh:
+            self._save_intraday_minute_cache(symbol, contract_code, fresh)
+            return fresh
+        return cached
+
     def _fetch_intraday_minute_backfill(self, symbol: str, contract_code: str) -> List[Dict[str, Any]]:
         if not contract_code or symbol not in SYMBOL_CONFIG:
             return []
@@ -629,6 +753,8 @@ class MarketDataService:
             rows.append(
                 {
                     "timestamp": row["minute"].strftime("%Y-%m-%d %H:%M:%S"),
+                    "trade_date": today.strftime("%Y-%m-%d"),
+                    "symbol": symbol.upper(),
                     "premium_rate": premium["premium_rate"],
                     "premium_points": premium["premium_points"],
                     "futures_price": futures_price,
