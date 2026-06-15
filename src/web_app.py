@@ -219,6 +219,8 @@ def health() -> Any:
 
 
 def run_server(port: int = 5005) -> None:
+    counts = service.warm_intraday_minute_cache(strict=True)
+    print(f"intraday minute cache ready: {counts}")
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True, use_reloader=False)
 
 

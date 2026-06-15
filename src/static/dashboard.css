@@ -564,9 +564,9 @@ body {
 
 .intraday-chart {
     min-height: 278px;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    padding: 4px 8px 6px;
+    border: 1px solid #cfd5dc;
+    border-radius: 0;
     background: #ffffff;
 }
 
@@ -582,7 +582,7 @@ body {
 }
 
 .intraday-chart-meta {
-    margin-bottom: 8px;
+    margin-bottom: 2px;
 }
 
 .intraday-chart-meta b {
@@ -605,8 +605,8 @@ body {
 }
 
 .chart-grid {
-    stroke: #d9e2ec;
-    stroke-dasharray: 4 5;
+    stroke: #d3d3d3;
+    stroke-dasharray: 4 4;
     stroke-width: 1;
 }
 
@@ -616,29 +616,34 @@ body {
 }
 
 .chart-zero-line {
-    stroke: #9ca3af;
+    stroke: #c8c8c8;
     stroke-width: 1;
+}
+
+.chart-area-futures {
+    fill: url(#intradayAreaFill);
+    stroke: none;
 }
 
 .chart-line {
     fill: none;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    stroke-width: 1;
+    stroke-linecap: butt;
+    stroke-linejoin: miter;
 }
 
 .chart-line-futures {
-    stroke: #1f6feb;
+    stroke: #5aa9ff;
 }
 
 .chart-line-index {
-    stroke: #d99a00;
+    stroke: #e0a400;
 }
 
 .chart-label {
     fill: var(--ink-soft);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 400;
 }
 
 .chart-price-label {
@@ -658,6 +663,14 @@ body {
 }
 
 .chart-pct-label.down {
+    fill: var(--down);
+}
+
+.chart-price-label.up {
+    fill: var(--up);
+}
+
+.chart-price-label.down {
     fill: var(--down);
 }
 

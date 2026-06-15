@@ -4,7 +4,7 @@ import logging
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from threading import Lock, Thread
+from threading import Lock
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import akshare as ak
@@ -305,7 +305,6 @@ class MarketDataService:
         self._daily_backfill_at: Optional[datetime] = None
         self._fallback_state = self.storage.get_latest_symbol_state()
         self._intraday_cache_file = Path(self.storage.data_dir) / "intraday_minute_cache.csv"
-        Thread(target=self._warm_intraday_minute_cache, daemon=True).start()
 
     def clear_cache(self) -> None:
         with self._lock:
@@ -606,15 +605,24 @@ class MarketDataService:
             "smoothed": smoothed_points,
         }
 
-    def _warm_intraday_minute_cache(self) -> None:
+    def warm_intraday_minute_cache(self, strict: bool = False) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
         try:
             snapshot = self.get_market_snapshot(force_refresh=True)
             for symbol, symbol_data in snapshot.get("symbols", {}).items():
                 contract_code = str(symbol_data.get("main_contract", {}).get("contract_code") or "").upper()
                 if contract_code:
-                    self._get_intraday_minute_points(symbol, contract_code, force_refresh=True)
+                    points = self._get_intraday_minute_points(symbol, contract_code, force_refresh=True)
+                    counts[symbol] = len(points)
         except Exception as exc:
             LOGGER.debug("intraday minute cache warmup failed: %s", exc)
+            if strict:
+                raise
+        if strict:
+            missing = [symbol for symbol in SYMBOL_CONFIG if counts.get(symbol, 0) <= 0]
+            if missing:
+                raise RuntimeError(f"intraday minute cache warmup failed for: {', '.join(missing)}")
+        return counts
 
     def _expected_intraday_latest(self) -> Optional[datetime]:
         now = _now()

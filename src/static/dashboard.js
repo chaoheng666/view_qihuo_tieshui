@@ -410,28 +410,63 @@
     }
 
     function intradayMinute(value) {
-        const match = String(value || "").match(/(\d{1,2}):(\d{2})/);
+        const match = String(value || "").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
         if (!match) {
             return null;
         }
-        const total = Number(match[1]) * 60 + Number(match[2]);
+        const total = Number(match[1]) * 60 + Number(match[2]) + (Number(match[3] || 0) / 60);
+        if (total < 9 * 60 + 30 || total > 15 * 60) {
+            return null;
+        }
         if (total <= 11 * 60 + 30) {
-            return Math.max(0, Math.min(120, total - (9 * 60 + 30)));
+            return total - (9 * 60 + 30);
         }
         if (total >= 13 * 60) {
-            return 120 + Math.max(0, Math.min(120, total - 13 * 60));
+            return 120 + total - 13 * 60;
         }
-        return 120;
+        return null;
     }
 
-    function percentPath(points, getValue, basePrice, maxPct, width, top, height) {
-        return points.map((item, index) => {
+    function percentCoords(points, getValue, basePrice, maxPct, width, top, height) {
+        return points.map((item) => {
             const minute = intradayMinute(item.timestamp);
-            const x = minute === null ? (points.length === 1 ? width / 2 : index * width / (points.length - 1)) : minute / 240 * width;
+            if (minute === null) {
+                return null;
+            }
+            const x = minute / 240 * width;
             const pct = (getValue(item) - basePrice) / basePrice * 100;
             const y = top + (maxPct - pct) / (maxPct * 2 || 1) * height;
             return `${x.toFixed(1)},${y.toFixed(1)}`;
-        }).join(" ");
+        }).filter(Boolean);
+    }
+
+    function percentPath(points, getValue, basePrice, maxPct, width, top, height) {
+        return percentCoords(points, getValue, basePrice, maxPct, width, top, height).join(" ");
+    }
+
+    function percentAreaPath(points, getValue, basePrice, maxPct, width, top, height) {
+        const coords = percentCoords(points, getValue, basePrice, maxPct, width, top, height);
+        if (!coords.length) {
+            return "";
+        }
+        const firstX = coords[0].split(",")[0];
+        const lastX = coords[coords.length - 1].split(",")[0];
+        const bottom = top + height;
+        return `M ${coords[0]} L ${coords.slice(1).join(" L ")} L ${lastX},${bottom.toFixed(1)} L ${firstX},${bottom.toFixed(1)} Z`;
+    }
+
+    function chartLabelClass(value) {
+        if (value > 0) {
+            return "up";
+        }
+        if (value < 0) {
+            return "down";
+        }
+        return "";
+    }
+
+    function formatChartPct(value) {
+        return value === 0 ? "0.00" : formatSigned(value, 2);
     }
 
     function renderIntradayChart(series) {
@@ -439,7 +474,11 @@
             return;
         }
         const points = (series && Array.isArray(series.points) ? series.points : [])
-            .filter(item => toNumber(item.futures_price) !== null && toNumber(item.index_price) !== null);
+            .filter(item => (
+                toNumber(item.futures_price) !== null
+                && toNumber(item.index_price) !== null
+                && intradayMinute(item.timestamp) !== null
+            ));
         if (!points.length) {
             intradayChart.innerHTML = '<div class="empty-chart">暂无分时数据</div>';
             return;
@@ -450,22 +489,23 @@
         const leftAxis = 58;
         const rightAxis = 58;
         const plotWidth = width - leftAxis - rightAxis;
-        const priceTop = 18;
-        const priceHeight = 172;
+        const priceTop = 8;
+        const priceHeight = 190;
         const prices = points.flatMap(item => [toNumber(item.futures_price), toNumber(item.index_price)]).filter(value => value !== null);
         const basePrice = toNumber(points[0].index_price) || toNumber(points[0].futures_price) || prices[0] || 1;
         const maxMove = Math.max(...prices.map(value => Math.abs((value - basePrice) / basePrice * 100)), 0.6);
         const maxPct = Math.max(0.6, Math.ceil(maxMove / 0.6) * 0.6);
         const pctTicks = [maxPct, maxPct * 2 / 3, maxPct / 3, 0, -maxPct / 3, -maxPct * 2 / 3, -maxPct];
         const futuresLine = percentPath(points, item => toNumber(item.futures_price), basePrice, maxPct, plotWidth, priceTop, priceHeight);
+        const futuresArea = percentAreaPath(points, item => toNumber(item.futures_price), basePrice, maxPct, plotWidth, priceTop, priceHeight);
         const indexLine = percentPath(points, item => toNumber(item.index_price), basePrice, maxPct, plotWidth, priceTop, priceHeight);
         const gridRows = pctTicks.map(value => {
             const y = priceTop + (maxPct - value) / (maxPct * 2 || 1) * priceHeight;
             const price = basePrice * (1 + value / 100);
             return `
                 <line x1="${leftAxis}" y1="${y.toFixed(1)}" x2="${leftAxis + plotWidth}" y2="${y.toFixed(1)}" class="chart-grid" />
-                <text x="${leftAxis - 8}" y="${(y + 4).toFixed(1)}" class="chart-label chart-price-label">${escapeHTML(formatNumber(price, 2))}</text>
-                <text x="${leftAxis + plotWidth + 8}" y="${(y + 4).toFixed(1)}" class="chart-label chart-pct-label ${value > 0 ? "up" : value < 0 ? "down" : ""}">${escapeHTML(formatSigned(value, 2))}%</text>
+                <text x="${leftAxis - 8}" y="${(y + 4).toFixed(1)}" class="chart-label chart-price-label ${chartLabelClass(value)}">${escapeHTML(formatNumber(price, 2))}</text>
+                <text x="${leftAxis + plotWidth + 8}" y="${(y + 4).toFixed(1)}" class="chart-label chart-pct-label ${chartLabelClass(value)}">${escapeHTML(formatChartPct(value))}%</text>
             `;
         }).join("");
         const gridColumns = [
@@ -492,10 +532,17 @@
                 <span class="${directionClass(lastPremium)}">贴水率 ${escapeHTML(formatSigned(lastPremium, 3))}%</span>
             </div>
             <svg class="intraday-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="intraday chart">
+                <defs>
+                    <linearGradient id="intradayAreaFill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stop-color="#79bdff" stop-opacity="0.62" />
+                        <stop offset="100%" stop-color="#dff2ff" stop-opacity="0.24" />
+                    </linearGradient>
+                </defs>
                 ${gridRows}
                 ${gridColumns}
                 <line x1="${leftAxis}" y1="${(priceTop + priceHeight / 2).toFixed(1)}" x2="${leftAxis + plotWidth}" y2="${(priceTop + priceHeight / 2).toFixed(1)}" class="chart-zero-line" />
                 <g transform="translate(${leftAxis},0)">
+                    <path d="${futuresArea}" class="chart-area-futures" />
                     <polyline points="${futuresLine}" class="chart-line chart-line-futures" />
                     <polyline points="${indexLine}" class="chart-line chart-line-index" />
                 </g>
